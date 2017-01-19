@@ -14,7 +14,7 @@ from tiah.tools import graph
 from src.others import knr
 from sklearn.decomposition import PCA
 from tiah import ImageHandler as images
-
+import time
 
 class worker:
     def __init__(self):
@@ -26,8 +26,6 @@ class worker:
 
         self.feature_version = 4
         self.dir_version = 1 # directory differs parameter
-
-
 
         self.bpath = files.mkdir(getcwd(), 'S1L1')
         self.res_path = files.mkdir(self.bpath, 'res' + str(self.dir_version))
@@ -80,8 +78,41 @@ class worker:
         # K,E,T,P,S,S2
         length = len(dpcolor1359)
 
-        self.dowork(features1357, features1359, dpcolor1359[1:length - 1], fg1359[1:length - 1],
+        comb1357,labels = self.make_combination(features1357)
+        comb1359, labels = self.make_combination(features1359)
+
+        self.dowork(comb1357, comb1359, labels, dpcolor1359[1:length - 1], fg1359[1:length - 1],
                     groundtruth1357, groundtruth1359)
+
+    def make_combination(self, features):
+        labels = ['K', 'E', 'T', 'P', 'S', 'S2', 'KE','KT','KP','KS','KS2','ET','EP','ES','ES2','KPS']
+
+
+        K = features[0]
+        E = features[1]
+        T = features[2]
+        P = features[3]
+        S = features[4]
+        S2 = features[5]
+
+        KE = np.hstack((K,E))
+        KT = np.hstack((K,T))
+        KP = np.hstack((K,P))
+        KS = np.hstack((K,S))
+        KS2 = np.hstack((K,S2))
+
+        ET = np.hstack((E,T))
+        EP = np.hstack((E,P))
+        ES = np.hstack((E,S))
+        ES2 = np.hstack((E,S2))
+
+        KPS = np.hstack((K,P,S))
+
+        combinations = [K,E,T,P,S,S2,KE,KT,KP,KS,KS2,ET,EP,ES,ES2,KPS]
+
+        return combinations, labels
+
+
 
     def run_gist_case(self):
         chdir('..')
@@ -177,40 +208,87 @@ class worker:
         X = pca.fit_transform(_trainX)
         self.test3d(X[:, 0], X[:, 1], _trainY)
 
-    def dowork(self, features1357, features1359, dpcolors, fgset, groundtruth1357, groundtruth1359):
-        labels = ['K', 'E', 'T', 'P', 'S', 'S2']
+    def dowork(self, features1357, features1359,labels, dpcolors, fgset, groundtruth1357, groundtruth1359):
+
         for i in range(len(labels)):
             train_feature = features1357[i]
             test_feature = features1359[i]
 
+            #####################################################################
+            # l1v1 auto gt
+            # l1v2 auto gt
+
+            # graph_name = 'onlyv1'
+            # vpath = files.mkdir(self.res_path, 'graph_' + graph_name)
             # _trainX = np.concatenate(train_feature)
             # _trainY = np.concatenate(groundtruth1357)
             # testX = test_feature
             # testY = groundtruth1359
 
-            # _trainX = np.concatenate(train_feature[i][0:train_feature.shape[0]:2])
-            # _trainY = np.concatenate(groundtruth[0:groundtruth.size:2])
-            # testX = test_feature[1:test_feature.shape[0]:2]
-            # testY = groundtruth[1:groundtruth.size:2]
 
-            _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
-            _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
-            testX = train_feature[1:train_feature.shape[0]:2]
-            testY = groundtruth1357[1:groundtruth1357.size:2]
+            #####################################################################
+            # l1v1 custom_gt
+            # l1v2 auto_gt
+
+
+            graph_name = 'case2'
+            case_path = files.mkdir(self.res_path,graph_name)
+            vpath = files.mkdir(case_path, 'graph_' + graph_name)
+            mpath = files.mkdir(case_path, 'models')
+            groundtruth = self.read_count_groundtruth()
+            _trainX = np.concatenate(train_feature)
+            _trainY = np.concatenate(groundtruth)
+            testX = test_feature
+            testY = groundtruth1359
+
+            trainX, trainY = self.exclude_label(_trainX, _trainY, c=0)
+            print 'training not norm'
+            timstamp = time.time()
+            gprmodel = pyGPs.GPR()
+            gprmodel.getPosterior(trainX, trainY)
+            gprmodel.optimize(trainX, trainY)
+
+            print 'It took ', time.time()-timstamp, ' s'
+
+            print 'training norm'
+            norm = np.linalg.norm(trainX,axis=0)
+            timstamp = time.time()
+            gprmodel = pyGPs.GPR()
+            gprmodel.getPosterior(trainX/norm, trainY)
+            gprmodel.optimize(trainX, trainY)
+
+            print 'It took ', time.time() - timstamp, ' s'
+
+            quit()
+
+
+
+
+            #####################################################################
+            # l1v1 odd auto gt
+            # l1v1 event auto gt
+
+            # graph_name = 'onlyv1'
+            # vpath = files.mkdir(self.res_path, 'graph_' + graph_name)
+            # _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
+            # _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
+            # testX = train_feature[1:train_feature.shape[0]:2]
+            # testY = groundtruth1357[1:groundtruth1357.size:2]
+
+            #####################################################################
+
 
             print '_trainX: ', _trainX.shape, ' _trainY: ', _trainY.shape
-            gpr_results, knr_results = self.train_model_and_test(_trainX, _trainY, testX, testY, labels[i], 'all',
-                                                                 '1357-1359')
+            gpr_results, knr_results = self.train_model_and_test(_trainX, _trainY, testX, testY, labels[i], 'model',
+                                                                 '1357-1359', mpath)
             # each result set contains [pred, sum_pred, gt, gt_sum]
 
-            graph_name ='onlyv1'
-            vpath = files.mkdir(self.res_path,'graph_'+graph_name)
             self.plot_gpr(gpr_results[0], gpr_results[1], gpr_results[2], gpr_results[3], labels[i], graph_name, vpath)
             self.plot_knr(knr_results[0], knr_results[1], knr_results[2], knr_results[3], labels[i], graph_name, vpath)
             # self.make_video(dpcolors, fgset, gpr_results, 'gpr_' + labels[i], self.prepare.param1359)
             # self.make_video(dpcolors, fgset, knr_results, 'knr_' + labels[i], self.prepare.param1359)
 
-    def train_model_and_test(self, _trainX, _trainY, testX, testY, label, mname, fname):
+    def train_model_and_test(self, _trainX, _trainY, testX, testY, label, mname, fname, model_path):
         """
         Learns GPR and KNR model from given training set and test on test set.
 
@@ -229,20 +307,20 @@ class worker:
         PYGPR = 'gpr_' + label + '_' + mname
         KNR = 'knr_' + label + '_' + mname
 
-        if files.isExist(self.model_path, PYGPR):
-            gprmodel = self.loadf(self.model_path, PYGPR)
-            knrmodel = self.loadf(self.model_path, KNR)
+        if files.isExist(model_path, PYGPR):
+            gprmodel = self.loadf(model_path, PYGPR)
+            knrmodel = self.loadf(model_path, KNR)
 
         else:
             print 'Learning GPR model'
             gprmodel = pyGPs.GPR()
             gprmodel.getPosterior(trainX, trainY)
             gprmodel.optimize(trainX, trainY)
-            self.savef(self.model_path, PYGPR, gprmodel)
+            self.savef(model_path, PYGPR, gprmodel)
 
             print 'Learning KNR model'
             knrmodel = knr(trainX, trainY)
-            self.savef(self.model_path, KNR, knrmodel)
+            self.savef(model_path, KNR, knrmodel)
 
             print 'Learning both GPR and KNR model is DONE.'
 
@@ -278,7 +356,6 @@ class worker:
                 cv2.putText(tmp, msg_pred, (r[0], r[2]), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, tools.blue, 2)
                 # msg_gt = 'GT: '+str(gt[j])
                 # cv2.putText(tmp, msg_gt, (r[0]+10,r[2]),cv2.FONT_HERSHEY_COMPLEX_SMALL, 1.0, tools.red)
-
             imgset.append(tmp)
         # images.display_img(imgset, 300)
         images.write_video(imgset, 20, videopath, fname)
@@ -485,7 +562,7 @@ class worker:
         :return:
         """
 
-        lines = files.read_text(self.res_path, 'count_gt')
+        lines = files.read_text(self.bpath, 'count_gt')
         res = []
         for line in lines:
             tmp = line.split(',')
@@ -544,6 +621,7 @@ class worker:
     def loadf(self, path, fname):
         with open(path + '/' + fname) as f:
             return pickle.load(f)
+
 
 
 if __name__ == '__main__':

@@ -522,3 +522,20 @@ def sobel(a, axis):
             aa = a[y - 1:y + 2, x - 1:x + 2]
             d[y, x] = sum(sum(aa * kx))
     return d
+def transform_bounding(rect):
+    xc = rect[0]
+    yc = rect[1]
+    w = rect[2]
+    h = rect[3]
+
+    ux = xc- (w/2)
+    uy = yc-(h/2)
+    return (ux,ux+w, uy,uy+h)
+
+def overlapping_area(a, b):
+    dx = min(a[1],b[1]) - max(a[0],b[0])
+    dy = min(a[3],b[3]) - max(a[2],b[2])
+    if (dx >= 0) and (dy >= 0):
+        return dx * dy
+    else:
+        return -1

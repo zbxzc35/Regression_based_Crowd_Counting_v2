@@ -120,8 +120,9 @@ class Prepare:
         else:
             path_time_13_57 = files.mkdir(self.DATASET, 'S1/L1/Time_13-57/View_001')
             path_time_13_59 = files.mkdir(self.DATASET, 'S1/L1/Time_13-59/View_001')
-            data1357 = self.create_parameters(path_time_13_57)
-            data1359 = self.create_parameters(path_time_13_59)
+            dilation_flag = 1
+            data1357 = self.create_parameters(path_time_13_57,dilation_flag)
+            data1359 = self.create_parameters(path_time_13_59,dilation_flag)
             # each data contains [fg set, gray-images, color-images, gray-images of fg set.]
 
             fg1357 = np.array(data1357[0])
@@ -174,31 +175,7 @@ class Prepare:
         return np.array(W)
 
 
-    def create_gist_parameters(self, selected_path, video_name):
-
-        org_images, fps = images.read_video_as_list_by_path(selected_path, video_name)
-        # background_model = cv2.BackgroundSubtractorMOG2(len(org_images), varThreshold=266, bShadowDetection=True)
-        background_model = cv2.BackgroundSubtractorMOG2()
-
-        for frame in org_images:
-            # background_model.apply(frame, len(org_images))  # given frame, learning-rate
-            background_model.apply(frame)  # given frame, learning-rate
-
-        th = 150
-        fgmask_set = []
-        dp_mask = []
-        for frame in org_images:
-            forward = background_model.apply(frame)  # create foreground mask which is gray-scale(0~255) image.
-            tmp = cv2.cvtColor(forward, cv2.COLOR_GRAY2BGR)  # convert to color
-            dp_mask.append(tmp)
-            # convert gray-scale foreground mask to binary image.
-            a = stats.threshold(forward, threshmin=th, threshmax=255, newval=0)
-            a = stats.threshold(a, threshmin=0, threshmax=th, newval=1)
-            fgmask_set.append(a)
-
-        return fgmask_set, org_images, dp_mask
-
-    def create_parameters(self, selected_path):
+    def create_parameters(self, selected_path, flag_dilation=0):
         """
         Learns background model from data S0 and creates foreground mask of selected data S1.
         This returns four parameters which are
@@ -226,16 +203,26 @@ class Prepare:
         th = 100
         fgmask_set = []
         dp_mask = []
+        kernel_size= 1
+        iteration = 2
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
         for frame in dp_gray:
             forward = background_model.apply(frame)  # create foreground mask which is gray-scale(0~255) image.
             tmp = cv2.cvtColor(forward, cv2.COLOR_GRAY2BGR)  # convert to color
-            dp_mask.append(tmp)
+            if flag_dilation:
+                dp_mask.append(cv2.dilate(tmp,kernel,iterations=iteration))
+            else:
+                dp_mask.append(tmp)
+
             # convert gray-scale foreground mask to binary image.
             a = stats.threshold(forward, threshmin=th, threshmax=255, newval=0)
             a = stats.threshold(a, threshmin=0, threshmax=th, newval=1)
             fgmask_set.append(a)
 
         return (fgmask_set, dp_gray), (dp_color, dp_mask)
+
+
 
     def parse_xml(self,gtname):
         """

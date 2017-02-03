@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 from tiah import ImageHandler as images
 import time
 
+
 class worker:
     def __init__(self):
         self.run_pets_case()
@@ -25,7 +26,12 @@ class worker:
         chdir('..')
 
         self.feature_version = 4
-        self.dir_version = 1 # directory differs parameter
+        self.dir_version = 4  # directory differs parameter
+        #dv1: different background parameter
+        #dv2: original one
+        #dv3: different background parameter & dilation 3x3 it=1
+        #dv4: different background parameter & dilation 2x2 it=3
+        #dv5: different background parameter & only edge feature
 
         self.bpath = files.mkdir(getcwd(), 'S1L1')
         self.res_path = files.mkdir(self.bpath, 'res' + str(self.dir_version))
@@ -53,16 +59,14 @@ class worker:
         # v2: only K
         # v3: only K E T
         # v3: K E T P S S2
-        # a= gt1357[1:gt1357.shape[0]-1]
-        # b= gt1359[1:gt1359.shape[0]-1]
-        # print 'a: ' , a.shape
-        # print 'b: ' , b.shape
-        # np.save(self.param_path+'/'+self.COUNTGT1357,a)
-        # np.save(self.param_path+'/'+self.COUNTGT1359,b)
-        # quit()
 
+        e = cv2.Canny(dpcolor1357[130],140,150)
+        cv2.imshow('2',e)
+        cv2.waitKey(0)
+        quit()
 
-
+        self.gt_test(self.prepare,fg1357,dpcolor1357,dpmask1357)
+        quit()
         self.create_feature_set(fg1357, dpcolor1357, weight, self.feature_version, self.FEATURE1357, param1357, gt1357,
                                 self.COUNTGT1357)
         self.create_feature_set(fg1359, dpcolor1359, weight, self.feature_version, self.FEATURE1359, param1359, gt1359,
@@ -72,47 +76,72 @@ class worker:
         groundtruth1357 = np.load(self.param_path + '/' + self.COUNTGT1357)
         groundtruth1359 = np.load(self.param_path + '/' + self.COUNTGT1359)
 
+
+
         print 'data1357: ', fg1357.shape, dpcolor1357.shape, len(dpmask1357)
         print 'data1359: ', fg1359.shape, dpcolor1359.shape, len(dpmask1359)
         print 'feature 1357: ', features1357.shape, ' 1359: ', features1359.shape
         # K,E,T,P,S,S2
         length = len(dpcolor1359)
 
-        comb1357,labels = self.make_combination(features1357)
+        comb1357, labels = self.make_combination(features1357)
         comb1359, labels = self.make_combination(features1359)
 
         self.dowork(comb1357, comb1359, labels, dpcolor1359[1:length - 1], fg1359[1:length - 1],
                     groundtruth1357, groundtruth1359)
 
+
+
     def make_combination(self, features):
-        labels = ['K', 'E', 'T', 'P', 'S', 'S2', 'KE','KT','KP','KS','KS2','ET','EP','ES','ES2','KPS']
+        labels = ['K', 'E', 'T', 'P', 'S', 'S2', 'KE', 'KT', 'KP', 'KS', 'KS2', 'ET', 'EP', 'ES', 'ES2', 'KPS']
 
+        K = np.array(features[0])
+        E = np.array(features[1])
+        T = np.array(features[2])
+        P = np.array(features[3])
+        S = np.array(features[4])
+        S2 = np.array(features[5])
 
-        K = features[0]
-        E = features[1]
-        T = features[2]
-        P = features[3]
-        S = features[4]
-        S2 = features[5]
+        KE = self.make_dual_form(K, E)
+        KT = self.make_dual_form(K, T)
+        KP = self.make_dual_form(K, P)
+        KS = self.make_dual_form(K, S)
+        KS2 = self.make_dual_form(K, S2)
 
-        KE = np.hstack((K,E))
-        KT = np.hstack((K,T))
-        KP = np.hstack((K,P))
-        KS = np.hstack((K,S))
-        KS2 = np.hstack((K,S2))
+        ET = self.make_dual_form(E, T)
+        EP = self.make_dual_form(E, P)
+        ES = self.make_dual_form(E, S)
+        ES2 = self.make_dual_form(E, S2)
 
-        ET = np.hstack((E,T))
-        EP = np.hstack((E,P))
-        ES = np.hstack((E,S))
-        ES2 = np.hstack((E,S2))
+        KPS = self.make_triple_form(K, P, S)
 
-        KPS = np.hstack((K,P,S))
-
-        combinations = [K,E,T,P,S,S2,KE,KT,KP,KS,KS2,ET,EP,ES,ES2,KPS]
+        combinations = [K, E, T, P, S, S2, KE, KT, KP, KS, KS2, ET, EP, ES, ES2, KPS]
 
         return combinations, labels
 
+    def make_dual_form(self, A, B):
+        newone = []
+        for frame1, frame2 in zip(A, B):
+            frame = []
 
+            for a, b in zip(frame1, frame2):
+                frame.append(np.hstack((a, b)))
+
+            newone.append(frame)
+
+        return np.array(newone)
+
+    def make_triple_form(self, A, B, C):
+        newone = []
+        for frame1, frame2, frame3 in zip(A, B, C):
+            frame = []
+
+            for a, b, c in zip(frame1, frame2, frame3):
+                frame.append(np.hstack((a, b, c)))
+
+            newone.append(frame)
+
+        return np.array(newone)
 
     def run_gist_case(self):
         chdir('..')
@@ -140,12 +169,18 @@ class worker:
         # images.display_img(dp_color)
 
     def gt_test(self, prepare, fg1357, dp1357, dpmask1357):
+        #####################################
+        #DO NOT DELETE
+        xml1357 = 'PETS2009-S1L1-1'
+        GT1357 = 'xml_groundtruth1357.npy'
+
 
         seg_tree = []
         for fg in fg1357:
-            list_rect, list_contours = self.segmentation_blob(fg, prepare.min_width_height())
+            list_rect, list_contours = self.segmentation_blob(fg, prepare.param1357)
             seg_tree.append(list_rect)
-        dp_count_tree, count_tree = prepare.create_count_groundtruth(seg_tree)
+
+        dp_count_tree, count_tree = prepare.create_count_groundtruth(fg1357, xml1357,'adf', 1357)
 
         for frame_count, frame_seg, dpcolor, dpmask in zip(dp_count_tree, seg_tree, dp1357, dpmask1357):
             for i in range(len(frame_seg)):
@@ -208,85 +243,87 @@ class worker:
         X = pca.fit_transform(_trainX)
         self.test3d(X[:, 0], X[:, 1], _trainY)
 
-    def dowork(self, features1357, features1359,labels, dpcolors, fgset, groundtruth1357, groundtruth1359):
+    def dowork(self, features1357, features1359, labels, dpcolors, fgset, groundtruth1357, groundtruth1359):
+
+        groundtruth = self.read_count_groundtruth()
+        groundtruth = groundtruth[1:len(groundtruth)-1]
+        print 'custom gt len: ' , len(groundtruth)
+        print 'custom gt concat ' , np.concatenate(groundtruth).shape
+        print 'auto gt len: ' , groundtruth1357.shape
+        print 'auto gt concat ' , np.concatenate(groundtruth1357).shape
+        print 'X concat ' , np.concatenate(features1357[1]).shape
 
         for i in range(len(labels)):
             train_feature = features1357[i]
             test_feature = features1359[i]
+            print 'label: ' , labels[i], ' train.size: ',train_feature.shape, ' test.size: ',test_feature.shape
 
             #####################################################################
-            # l1v1 auto gt
-            # l1v2 auto gt
 
-            # graph_name = 'onlyv1'
-            # vpath = files.mkdir(self.res_path, 'graph_' + graph_name)
-            # _trainX = np.concatenate(train_feature)
-            # _trainY = np.concatenate(groundtruth1357)
-            # testX = test_feature
-            # testY = groundtruth1359
+
+            graph_name = 'case1' # l1v1 auto gt, l1v2 auto gt
+            _trainX = np.concatenate(train_feature)
+            _trainY = np.concatenate(groundtruth1357)
+            testX = test_feature
+            testY = groundtruth1359
+            self.train_model_test_plot(_trainX, _trainY, testX, testY,graph_name,labels[i])
 
 
             #####################################################################
-            # l1v1 custom_gt
-            # l1v2 auto_gt
 
 
-            graph_name = 'case2'
-            case_path = files.mkdir(self.res_path,graph_name)
-            vpath = files.mkdir(case_path, 'graph_' + graph_name)
-            mpath = files.mkdir(case_path, 'models')
+            graph_name = 'case2' # l1v1 custom_gt , l1v2 auto_gt
             groundtruth = self.read_count_groundtruth()
             _trainX = np.concatenate(train_feature)
             _trainY = np.concatenate(groundtruth)
             testX = test_feature
             testY = groundtruth1359
-
-            trainX, trainY = self.exclude_label(_trainX, _trainY, c=0)
-            print 'training not norm'
-            timstamp = time.time()
-            gprmodel = pyGPs.GPR()
-            gprmodel.getPosterior(trainX, trainY)
-            gprmodel.optimize(trainX, trainY)
-
-            print 'It took ', time.time()-timstamp, ' s'
-
-            print 'training norm'
-            norm = np.linalg.norm(trainX,axis=0)
-            timstamp = time.time()
-            gprmodel = pyGPs.GPR()
-            gprmodel.getPosterior(trainX/norm, trainY)
-            gprmodel.optimize(trainX, trainY)
-
-            print 'It took ', time.time() - timstamp, ' s'
-
-            quit()
-
-
+            self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
 
 
             #####################################################################
-            # l1v1 odd auto gt
-            # l1v1 event auto gt
 
-            # graph_name = 'onlyv1'
-            # vpath = files.mkdir(self.res_path, 'graph_' + graph_name)
-            # _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
-            # _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
-            # testX = train_feature[1:train_feature.shape[0]:2]
-            # testY = groundtruth1357[1:groundtruth1357.size:2]
+
+            graph_name = 'case3' # l1v1 odd auto gt, l1v1 event auto gt
+            _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
+            _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
+            testX = train_feature[1:train_feature.shape[0]:2]
+            testY = groundtruth1357[1:groundtruth1357.size:2]
+            self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
+
+
+            #####################################################################
+            # l1v1 odd custom_gt
+            # l1v1 even custom_gt
+
+            # graph_name = 'case4'
+            # _trainX = np.concatenate(train_feature[0: train_feature.size:2])
+            # _trainY = np.concatenate(groundtruth[0: len(groundtruth):2])
+            # testX = train_feature[1:train_feature.size:2]
+            # testY = groundtruth[1:len(groundtruth):2]
+            # self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
 
             #####################################################################
 
 
-            print '_trainX: ', _trainX.shape, ' _trainY: ', _trainY.shape
-            gpr_results, knr_results = self.train_model_and_test(_trainX, _trainY, testX, testY, labels[i], 'model',
-                                                                 '1357-1359', mpath)
-            # each result set contains [pred, sum_pred, gt, gt_sum]
 
-            self.plot_gpr(gpr_results[0], gpr_results[1], gpr_results[2], gpr_results[3], labels[i], graph_name, vpath)
-            self.plot_knr(knr_results[0], knr_results[1], knr_results[2], knr_results[3], labels[i], graph_name, vpath)
+
+
+
+            # self.plot_knr(knr_results[0], knr_results[1], knr_results[2], knr_results[3], labels[i], graph_name, vpath)
             # self.make_video(dpcolors, fgset, gpr_results, 'gpr_' + labels[i], self.prepare.param1359)
             # self.make_video(dpcolors, fgset, knr_results, 'knr_' + labels[i], self.prepare.param1359)
+    def train_model_test_plot(self,_trainX, _trainY, testX, testY, graph_name, label):
+        print '_trainX: ', _trainX.shape, ' _trainY: ', _trainY.shape
+        print 'testX: ', testX.shape, ' testY: ', np.array(testY).shape
+        case_path = files.mkdir(self.res_path, graph_name)
+        vpath = files.mkdir(self.graph_path, 'graph_' + graph_name)
+        mpath = files.mkdir(self.model_path, 'models_'+graph_name)
+        gpr_results = self.train_model_and_test(_trainX, _trainY, testX, testY, label, 'model',
+                                                '1357-1359',
+                                                mpath)  # each result set contains [pred, sum_pred, gt, gt_sum]
+
+        self.plot_gpr(gpr_results[0], gpr_results[1], gpr_results[2], gpr_results[3], label, graph_name, vpath)
 
     def train_model_and_test(self, _trainX, _trainY, testX, testY, label, mname, fname, model_path):
         """
@@ -305,11 +342,9 @@ class worker:
         print '_trainX.shape: ', trainX.shape, ', _trainY.shape: ', trainY.shape
 
         PYGPR = 'gpr_' + label + '_' + mname
-        KNR = 'knr_' + label + '_' + mname
 
         if files.isExist(model_path, PYGPR):
             gprmodel = self.loadf(model_path, PYGPR)
-            knrmodel = self.loadf(model_path, KNR)
 
         else:
             print 'Learning GPR model'
@@ -318,18 +353,12 @@ class worker:
             gprmodel.optimize(trainX, trainY)
             self.savef(model_path, PYGPR, gprmodel)
 
-            print 'Learning KNR model'
-            knrmodel = knr(trainX, trainY)
-            self.savef(model_path, KNR, knrmodel)
-
-            print 'Learning both GPR and KNR model is DONE.'
-
         # gpred, gsum_pred, ggt, ggt_sum = self.prediction_gpr_model(gprmodel,testX,[])
         # kpred, ksum_pred, kgt, kgt_sum = self.prediction_gpr_model(knrmodel,testX,[])
 
         gpr_result = self.prediction_gpr_model(gprmodel, testX, testY)
-        knr_result = self.prediction_knr_model(knrmodel, testX, testY)
-        return gpr_result, knr_result
+
+        return gpr_result
 
 
         # self.plot_gpr(gprmodel,testX,testY,label,fname)
@@ -469,7 +498,7 @@ class worker:
         plt.subplot(211)
         l1, = plt.plot(sxp, Y_sum_pred, 'b^', label='prediction')
         l2, = plt.plot(sxp, Y_sum_label, 'g.', label='groundtruth')
-        l3, = plt.plot(sxp, abs(np.array(Y_sum_pred) - np.array(Y_sum_label)), 'r-', label='difference')
+        l3, = plt.plot(sxp, abs(np.array(Y_sum_pred) - np.array(Y_sum_label)), 'r-', label='error')
         plt.legend(handles=[l1, l2, l3], loc='best')
         plt.ylim([0, 40])
         plt.title('GPR estimation on frame ' + label)
@@ -479,7 +508,7 @@ class worker:
         plt.subplot(212)
         l4, = plt.plot(xp, Y_pred, 'b^', label='prediction')
         l5, = plt.plot(xp, Y_label, 'g.', label='groundtruth')
-        l6, = plt.plot(xp, abs(np.array(Y_pred) - np.array(Y_label)), 'r*', label='difference')
+        l6, = plt.plot(xp, abs(np.array(Y_pred) - np.array(Y_label)), 'r*', label='error')
         plt.legend(handles=[l4, l5, l6], loc='best')
         plt.title('GPR estimation on feature ' + label)
         plt.ylim([0, 9])
@@ -554,7 +583,7 @@ class worker:
 
         K = np.array(K)
         np.save(self.param_path + '/v' + str(version) + '_' + fname, [K, E, T, P, S, S2])
-        np.save(self.param_path + '/v' + str(version) + '_' + gname, groundtruth)
+        np.save(self.param_path + '/' + gname, groundtruth)
 
     def read_count_groundtruth(self):
         """
@@ -621,7 +650,6 @@ class worker:
     def loadf(self, path, fname):
         with open(path + '/' + fname) as f:
             return pickle.load(f)
-
 
 
 if __name__ == '__main__':

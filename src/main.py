@@ -15,6 +15,7 @@ from src.others import knr
 from sklearn.decomposition import PCA
 from tiah import ImageHandler as images
 import time
+from tiah import tools as tools
 
 
 class worker:
@@ -24,9 +25,9 @@ class worker:
 
     def run_pets_case(self):
         chdir('..')
-
+        self.param_version = 1
         self.feature_version = 4
-        self.dir_version = 4  # directory differs parameter
+        self.dir_version = 5  # directory differs parameter
         #dv1: different background parameter
         #dv2: original one
         #dv3: different background parameter & dilation 3x3 it=1
@@ -60,13 +61,9 @@ class worker:
         # v3: only K E T
         # v3: K E T P S S2
 
-        e = cv2.Canny(dpcolor1357[130],140,150)
-        cv2.imshow('2',e)
-        cv2.waitKey(0)
-        quit()
 
-        self.gt_test(self.prepare,fg1357,dpcolor1357,dpmask1357)
-        quit()
+
+
         self.create_feature_set(fg1357, dpcolor1357, weight, self.feature_version, self.FEATURE1357, param1357, gt1357,
                                 self.COUNTGT1357)
         self.create_feature_set(fg1359, dpcolor1359, weight, self.feature_version, self.FEATURE1359, param1359, gt1359,
@@ -93,29 +90,31 @@ class worker:
 
 
     def make_combination(self, features):
-        labels = ['K', 'E', 'T', 'P', 'S', 'S2', 'KE', 'KT', 'KP', 'KS', 'KS2', 'ET', 'EP', 'ES', 'ES2', 'KPS']
+        labels = ['E']
+        # labels = ['E', 'K',  'T', 'P', 'S', 'S2', 'KE', 'KT', 'KP', 'KS', 'KS2', 'ET', 'EP', 'ES', 'ES2', 'KPS']
 
-        K = np.array(features[0])
-        E = np.array(features[1])
-        T = np.array(features[2])
-        P = np.array(features[3])
-        S = np.array(features[4])
-        S2 = np.array(features[5])
+        E = np.array(features[0])
+        # K = np.array(features[1])
+        # T = np.array(features[2])
+        # P = np.array(features[3])
+        # S = np.array(features[4])
+        # S2 = np.array(features[5])
+        #
+        # KE = self.make_dual_form(K, E)
+        # KT = self.make_dual_form(K, T)
+        # KP = self.make_dual_form(K, P)
+        # KS = self.make_dual_form(K, S)
+        # KS2 = self.make_dual_form(K, S2)
+        #
+        # ET = self.make_dual_form(E, T)
+        # EP = self.make_dual_form(E, P)
+        # ES = self.make_dual_form(E, S)
+        # ES2 = self.make_dual_form(E, S2)
+        #
+        # KPS = self.make_triple_form(K, P, S)
 
-        KE = self.make_dual_form(K, E)
-        KT = self.make_dual_form(K, T)
-        KP = self.make_dual_form(K, P)
-        KS = self.make_dual_form(K, S)
-        KS2 = self.make_dual_form(K, S2)
-
-        ET = self.make_dual_form(E, T)
-        EP = self.make_dual_form(E, P)
-        ES = self.make_dual_form(E, S)
-        ES2 = self.make_dual_form(E, S2)
-
-        KPS = self.make_triple_form(K, P, S)
-
-        combinations = [K, E, T, P, S, S2, KE, KT, KP, KS, KS2, ET, EP, ES, ES2, KPS]
+        # combinations = [E, K, T, P, S, S2, KE, KT, KP, KS, KS2, ET, EP, ES, ES2, KPS]
+        combinations = [ E]
 
         return combinations, labels
 
@@ -251,7 +250,7 @@ class worker:
         print 'custom gt concat ' , np.concatenate(groundtruth).shape
         print 'auto gt len: ' , groundtruth1357.shape
         print 'auto gt concat ' , np.concatenate(groundtruth1357).shape
-        print 'X concat ' , np.concatenate(features1357[1]).shape
+        print 'X concat ' , np.concatenate(features1357[0]).shape
 
         for i in range(len(labels)):
             train_feature = features1357[i]
@@ -562,27 +561,24 @@ class worker:
             print 'extracting at ', i, ', ', round(float(i) / size, 3), '%'
             groundtruth.append(groundtruth_tree[i])
 
-            ks = directs.run_SURF_v4(dpcolor[i], weight, rectangles_tree[i])
-            kf = directs.run_FAST_v4(dpcolor[i], weight, rectangles_tree[i])
-            K.append(np.vstack((ks, kf)).T)
+            # ks = directs.run_SURF_v4(dpcolor[i], weight, rectangles_tree[i])
+            # kf = directs.run_FAST_v4(dpcolor[i], weight, rectangles_tree[i])
+            # t = directs.get_texture_T(dpcolor[i - 1:i + 2, :, :], rectangles_tree[i])
+            e = directs.get_canny_edges(dpcolor[i], weight, rectangles_tree[i],self.dir_version)
 
-            e = directs.get_canny_edges(dpcolor[i], weight, rectangles_tree[i])
+            # l = indirects.get_size_L(fgset[i], weight, contours_tree[i])
+            # s = indirects.get_size_S(fgset[i], weight, contours_tree[i])
+            # s2 = indirects.get_size_S_v2(fgset[i], weight, rectangles_tree[i])
+            # p = indirects.get_shape_P(fgset[i], weight, contours_tree[i])
+
+            # K.append(np.vstack((ks, kf)).T)
             E.append(e)
+            # T.append(t)
+            # S.append(np.vstack((s, l)).T)
+            # S2.append(np.vstack((s2, l)).T)
+            # P.append(p)
 
-            t = directs.get_texture_T(dpcolor[i - 1:i + 2, :, :], rectangles_tree[i])
-            T.append(t)
-
-            l = indirects.get_size_L(fgset[i], weight, contours_tree[i])
-            s = indirects.get_size_S(fgset[i], weight, contours_tree[i])
-            s2 = indirects.get_size_S_v2(fgset[i], weight, rectangles_tree[i])
-            S.append(np.vstack((s, l)).T)
-            S2.append(np.vstack((s2, l)).T)
-
-            p = indirects.get_shape_P(fgset[i], weight, contours_tree[i])
-            P.append(p)
-
-        K = np.array(K)
-        np.save(self.param_path + '/v' + str(version) + '_' + fname, [K, E, T, P, S, S2])
+        np.save(self.param_path + '/v' + str(version) + '_' + fname, [E, np.array(K),  T, P, S, S2])
         np.save(self.param_path + '/' + gname, groundtruth)
 
     def read_count_groundtruth(self):

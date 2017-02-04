@@ -86,7 +86,7 @@ def compute_orientation_matrix(dx, dy):
     return np.array(a).reshape(dx.shape)
 
 
-def get_canny_edges(dp_color, weight, segmentation_set):
+def get_canny_edges(dp_color, weight, segmentation_set, version):
     """
     edge matrix contains binary value, if edge then 255 else 0.
     same size as given image, and it's size is same as given image.
@@ -98,7 +98,12 @@ def get_canny_edges(dp_color, weight, segmentation_set):
 
     from scipy import ndimage
     gray = cv2.cvtColor(dp_color, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 20, 200) # 0 or 255
+
+    # dir ver 1,2,3,4
+    # edges = cv2.Canny(gray, 20, 200)
+
+    #dir ver 5
+    edges = cv2.Canny(gray, 140, 250)
 
     dx = tools.sobel(gray, 0)
     dy = tools.sobel(gray, 1)

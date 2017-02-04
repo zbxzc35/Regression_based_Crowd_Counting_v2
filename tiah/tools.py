@@ -521,7 +521,9 @@ def sobel(a, axis):
         for x in range(1, a.shape[1] - 1):
             aa = a[y - 1:y + 2, x - 1:x + 2]
             d[y, x] = sum(sum(aa * kx))
+
     return d
+
 def transform_bounding(rect):
     xc = rect[0]
     yc = rect[1]

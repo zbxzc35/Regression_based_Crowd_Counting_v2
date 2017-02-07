@@ -79,10 +79,17 @@ class worker:
         # images.write_video(dplist,8, tmp_path,'rc')
         # return 1
 
+        E = 1
+        K = 1
+        P = 1
+        S = 1
+        T = 1
+        feature_version ={'E':E, 'K':K, 'P':P, 'S':S, 'T':T }
 
-        self.create_feature_set(fg1357, dpcolor1357, weight, self.feature_version, self.FEATURE1357, param1357, gt1357,
+
+        self.create_feature_set(fg1357, dpcolor1357, weight, feature_version, param1357, gt1357,
                                 self.COUNTGT1357)
-        self.create_feature_set(fg1359, dpcolor1359, weight, self.feature_version, self.FEATURE1359, param1359, gt1359,
+        self.create_feature_set(fg1359, dpcolor1359, weight, feature_version,  param1359, gt1359,
                                 self.COUNTGT1359)
         features1357 = np.load(self.param_path + '/v' + str(self.feature_version) + '_' + self.FEATURE1357)
         features1359 = np.load(self.param_path + '/v' + str(self.feature_version) + '_' + self.FEATURE1359)
@@ -552,7 +559,7 @@ class worker:
         plt.savefig(vpath + '/' + fname + '_gpr_' + label + '.png')
         # plt.show()
 
-    def create_feature_set(self, fgset, dpcolor, weight, version, fname, param, givengt, gname):
+    def create_feature_set(self, fgset, dpcolor, weight, version, param, givengt, gname):
         """
         Extracts features (e.g., K, S, P, E, T) from each image.
 
@@ -570,11 +577,6 @@ class worker:
         :return:
         """
 
-        if files.isExist(self.param_path, 'v' + str(version) + '_' + fname):
-            return
-
-        print 'making feature set sequence.'
-
         contours_tree = []
         rectangles_tree = []
         groundtruth_tree = givengt  # self.read_count_groundtruth()
@@ -585,36 +587,58 @@ class worker:
             rectangles_tree.append(rect)
 
         size = len(fgset)
-        K = []
-        groundtruth = []
-        E = []
-        T = []
-        S = []
-        S2 = []
-        P = []
-        for i in range(1, size - 1):
-            print 'extracting at ', i, ', ', round(float(i) / size, 3), '%'
-            groundtruth.append(groundtruth_tree[i])
 
-            # ks = directs.run_SURF_v4(dpcolor[i], weight, rectangles_tree[i])
-            # kf = directs.run_FAST_v4(dpcolor[i], weight, rectangles_tree[i])
-            # t = directs.get_texture_T(dpcolor[i - 1:i + 2, :, :], rectangles_tree[i])
-            e = directs.get_canny_edges(dpcolor[i], weight, rectangles_tree[i],self.dir_version)
+        if not files.isExist(self.param_path,gname):
+            groundtruth = []
+            for i in range(1, size - 1):
+                groundtruth.append(groundtruth_tree[i])
+            np.save(self.param_path + '/' + gname, groundtruth)
 
-            # l = indirects.get_size_L(fgset[i], weight, contours_tree[i])
-            # s = indirects.get_size_S(fgset[i], weight, contours_tree[i])
-            # s2 = indirects.get_size_S_v2(fgset[i], weight, rectangles_tree[i])
-            # p = indirects.get_shape_P(fgset[i], weight, contours_tree[i])
+        if not files.isExist(self.param_path, 'feature_E_v' + str(version['E'])):
+            E = []
+            for i in range(1, size - 1):
+                e = directs.get_canny_edges(dpcolor[i], weight, rectangles_tree[i], self.dir_version)
+                E.append(e)
+            np.save(self.param_path + '/feature_E_v' + str(version['E']), E)
 
-            # K.append(np.vstack((ks, kf)).T)
-            E.append(e)
-            # T.append(t)
-            # S.append(np.vstack((s, l)).T)
-            # S2.append(np.vstack((s2, l)).T)
-            # P.append(p)
 
-        np.save(self.param_path + '/v' + str(version) + '_' + fname, [E, np.array(K),  T, P, S, S2])
-        np.save(self.param_path + '/' + gname, groundtruth)
+
+        print 'making feature set sequence.'
+
+        if not files.isExist(self.param_path, 'feature_K_v' + str(version['K'])):
+            K = []
+            for i in range(1, size - 1):
+                ks = directs.run_SURF_v4(dpcolor[i], weight, rectangles_tree[i])
+                kf = directs.run_FAST_v4(dpcolor[i], weight, rectangles_tree[i])
+                K.append(np.vstack((ks, kf)).T)
+            np.save(self.param_path + '/feature_K_v' + str(version['K']), K)
+
+
+        if not files.isExist(self.param_path, 'feature_T_v' + str(version['T'])):
+            T = []
+            for i in range(1, size - 1):
+                t = directs.get_texture_T(dpcolor[i - 1:i + 2, :, :], rectangles_tree[i])
+                T.append(t)
+            np.save(self.param_path + '/feature_T_v' + str(version['T']), T)
+
+
+        if not files.isExist(self.param_path, 'feature_S_v' + str(version['S'])):
+            S = []
+            for i in range(1, size - 1):
+                l = indirects.get_size_L(fgset[i], weight, contours_tree[i])
+                s = indirects.get_size_S(fgset[i], weight, contours_tree[i])
+                S.append(np.vstack((s, l)).T)
+            np.save(self.param_path + '/feature_S_v' + str(version['S']), S)
+
+
+        if not files.isExist(self.param_path, 'feature_P_v' + str(version['P'])):
+            P = []
+            for i in range(1, size - 1):
+                p = indirects.get_shape_P(fgset[i], weight, contours_tree[i])
+                P.append(p)
+            np.save(self.param_path + '/feature_P_v' + str(version['P']), P)
+
+
 
     def read_count_groundtruth(self):
         """

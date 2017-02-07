@@ -12,10 +12,11 @@ import matplotlib.pyplot as plt
 import sys
 
 class Prepare:
-    def __init__(self, bpath, rpath):
+    def __init__(self, bpath, rpath, version):
         self.bpath = bpath
         self.res_path = rpath
-        self.param_path = files.mkdir(self.res_path, 'params')
+        self.param_version=version
+        self.param_path = files.mkdir(self.bpath, 'params_v'+str(self.param_version))
 
         # self.test_background_subtractor(self.res_path, 'gist2.avi')
         # self.test_background_subtractor(self.res_path, 'gist2_cut.avi')
@@ -49,9 +50,9 @@ class Prepare:
         y = min(np_gt[:, 1])
 
         if flag==1357:
-            self.param1357 = (width, heigh,y)
+            self.param1357 = (width, heigh, y)
         else:
-            self.param1359 = (width, heigh,y)
+            self.param1359 = (width, heigh, y)
 
     def test_background_subtractor(self):
         path_time_13_57 = files.mkdir(self.DATASET, 'S1/L1/Time_13-57/View_001')
@@ -197,26 +198,67 @@ class Prepare:
 
         background_model = cv2.BackgroundSubtractorMOG2(len(background_train_set), varThreshold=266,
                                                         bShadowDetection=True)
+        #foreground: 255, background: 0, shadow: 127
         for frame in background_train_set:
             background_model.apply(frame, len(background_train_set))  # given frame, learning-rate
 
-        th = 100
         fgmask_set = []
         dp_mask = []
-        kernel_size= 1
-        iteration = 2
-        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        th = 130
+        if self.param_version == 1:
+            kernel_size= 1
+            iteration = 1
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        elif self.param_version == 2:
+            kernel_size= 1
+            iteration =3
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        elif self.param_version == 3:
+            kernel_size= 3
+            iteration =1
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        elif self.param_version == 4:
+            kernel_size= 5
+            iteration =2
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        elif self.param_version == 5:
+            kernel_size= 5
+            iteration = 1
+            kerenl_center = (2, 2)
+            kernel = tools.matrix_binary_disk(kernel_size, kerenl_center, 2)
+
+        elif self.param_version == 6:
+            kernel_size= 7
+            iteration = 1
+            kerenl_center = (3, 3)
+            kernel = tools.matrix_binary_disk(kernel_size, kerenl_center, 2)
+
+        else:
+            kernel_size = 1
+            iteration = 1
+            kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+
+
 
         for frame in dp_gray:
             forward = background_model.apply(frame)  # create foreground mask which is gray-scale(0~255) image.
-            tmp = cv2.cvtColor(forward, cv2.COLOR_GRAY2BGR)  # convert to color
-            if flag_dilation:
-                dp_mask.append(cv2.dilate(tmp,kernel,iterations=iteration))
-            else:
-                dp_mask.append(tmp)
+            forward = cv2.dilate(forward,kernel,iterations=iteration)
+
+            # if flag_dilation:
+            #     dp_mask.append(cv2.dilate(tmp,kernel,iterations=iteration))
+            # else:
+            #     dp_mask.append(tmp)
 
             # convert gray-scale foreground mask to binary image.
             a = stats.threshold(forward, threshmin=th, threshmax=255, newval=0)
+            tmp = cv2.cvtColor(a, cv2.COLOR_GRAY2BGR)  # convert to color
+            dp_mask.append(tmp)
+
             a = stats.threshold(a, threshmin=0, threshmax=th, newval=1)
             fgmask_set.append(a)
 

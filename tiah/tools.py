@@ -541,3 +541,16 @@ def overlapping_area(a, b):
         return dx * dy
     else:
         return -1
+
+def matrix_binary_disk(n, center, radius):
+    a, b = center[0],center[1]
+    n = n
+    r = radius
+
+    y, x = np.ogrid[-a:n - a, -b:n - b]
+    mask = x * x + y * y <= r * r
+
+    array = np.zeros((n, n))
+    array[mask] = 1
+
+    return array.astype(np.uint8)

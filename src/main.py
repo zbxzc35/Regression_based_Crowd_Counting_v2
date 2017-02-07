@@ -20,32 +20,44 @@ from tiah import tools as tools
 
 class worker:
     def __init__(self):
-        self.run_pets_case()
+
+        P = [3,5,6]
+        D = [7,8,9]
+        #d1~d6: using pn
+        #d7: only E using p3
+        #d8: only E using p5
+        #d9: only E using p6
+
+        chdir('..')
+        for pv,dv in zip(P,D):
+            self.run_pets_case(pv,dv)
         # self.run_gist_case()
 
-    def run_pets_case(self):
-        chdir('..')
-        self.param_version = 1
-        self.feature_version = 4
-        self.dir_version = 5  # directory differs parameter
-        #dv1: different background parameter
-        #dv2: original one
-        #dv3: different background parameter & dilation 3x3 it=1
-        #dv4: different background parameter & dilation 2x2 it=3
-        #dv5: different background parameter & only edge feature
+    def run_pets_case(self,pv,dv):
+
+        self.param_version = pv#4
+        self.feature_version = 5
+        # self.feature_version = 4 # for d1~d6
+        self.dir_version = dv #1  # directory differs parameter
+
+
+
 
         self.bpath = files.mkdir(getcwd(), 'S1L1')
         self.res_path = files.mkdir(self.bpath, 'res' + str(self.dir_version))
-        self.param_path = files.mkdir(self.res_path, 'params')
+        self.param_path = files.mkdir(self.bpath, 'params_v'+str(self.param_version))
         self.graph_path = files.mkdir(self.res_path, 'graphs')
         self.model_path = files.mkdir(self.res_path, 'models')
-        self.prepare = Prepare(self.bpath, self.res_path)
+        self.prepare = Prepare(self.bpath, self.res_path,self.param_version)
         self.prepare.init_pets()
         # prepare.test_background_subtractor()
         self.FEATURE1357 = 'featureset1357.npy'
         self.FEATURE1359 = 'featureset1359.npy'
         self.COUNTGT1357 = 'c_groundtruth1357.npy'
         self.COUNTGT1359 = 'c_groundtruth1359.npy'
+
+        print 'Current Param Version: ',self.param_version
+        print 'Current Directory Version: ',self.dir_version
 
         a1357, b1357, a1359, b1359, weight, gt1357, gt1359 = self.prepare.prepare()
         param1357 = self.prepare.param1357
@@ -61,7 +73,11 @@ class worker:
         # v3: only K E T
         # v3: K E T P S S2
 
-
+        # dplist = self.draw_shapes(self.prepare,fg1357,dpcolor1357,dpmask1357)
+        # tmp_path = files.mkdir(self.param_path, 'rect_contour')
+        # images.write_imgs(dplist,tmp_path,'rc')
+        # images.write_video(dplist,8, tmp_path,'rc')
+        # return 1
 
 
         self.create_feature_set(fg1357, dpcolor1357, weight, self.feature_version, self.FEATURE1357, param1357, gt1357,
@@ -92,29 +108,32 @@ class worker:
     def make_combination(self, features):
         labels = ['E']
         # labels = ['E', 'K',  'T', 'P', 'S', 'S2', 'KE', 'KT', 'KP', 'KS', 'KS2', 'ET', 'EP', 'ES', 'ES2', 'KPS']
+        # labels = ['E', 'K',  'T', 'P', 'S', 'KE', 'KS', 'KES']
 
         E = np.array(features[0])
-        # K = np.array(features[1])
-        # T = np.array(features[2])
-        # P = np.array(features[3])
-        # S = np.array(features[4])
-        # S2 = np.array(features[5])
-        #
-        # KE = self.make_dual_form(K, E)
-        # KT = self.make_dual_form(K, T)
-        # KP = self.make_dual_form(K, P)
-        # KS = self.make_dual_form(K, S)
-        # KS2 = self.make_dual_form(K, S2)
-        #
-        # ET = self.make_dual_form(E, T)
-        # EP = self.make_dual_form(E, P)
-        # ES = self.make_dual_form(E, S)
-        # ES2 = self.make_dual_form(E, S2)
-        #
-        # KPS = self.make_triple_form(K, P, S)
+        K = np.array(features[1])
+        T = np.array(features[2])
+        P = np.array(features[3])
+        S = np.array(features[4])
+        S2 = np.array(features[5])
 
+        KE = self.make_dual_form(K, E)
+        KT = self.make_dual_form(K, T)
+        KP = self.make_dual_form(K, P)
+        KS = self.make_dual_form(K, S)
+        KS2 = self.make_dual_form(K, S2)
+
+        ET = self.make_dual_form(E, T)
+        EP = self.make_dual_form(E, P)
+        ES = self.make_dual_form(E, S)
+        ES2 = self.make_dual_form(E, S2)
+
+        KPS = self.make_triple_form(K, P, S)
+        KES =self.make_triple_form(K,E,S)
+
+        # combinations = [E, K, T, P, S, KE, KS, KES]
         # combinations = [E, K, T, P, S, S2, KE, KT, KP, KS, KS2, ET, EP, ES, ES2, KPS]
-        combinations = [ E]
+        combinations = [E]
 
         return combinations, labels
 
@@ -142,30 +161,46 @@ class worker:
 
         return np.array(newone)
 
-    def run_gist_case(self):
-        chdir('..')
-        self.bpath = files.mkdir(getcwd(), 'gist')
-        self.res_path = files.mkdir(self.bpath, 'res')
-        self.param_path = files.mkdir(self.res_path, 'params')
-        self.graph_path = files.mkdir(self.res_path, 'graphs')
-        self.model_path = files.mkdir(self.res_path, 'models')
-        prepare = PrepareGIST(self.res_path)
 
-        src = 'gist2_2016_cut'
-        # src = 'gist2_2015'
-        # src = 'gist2_2015'
-        prepare.init_gist(src)
-        self.FEATURE = 'featureset.npy'
-        self.GT = 'groundtruth.npy'
 
-        segmentation_tree = []
+    def draw_shapes(self, prepare, fg1357, dp1357, dpmask1357):
+        #####################################
+        #DO NOT DELETE
+        xml1357 = 'PETS2009-S1L1-1'
+        GT1357 = 'xml_groundtruth1357.npy'
 
-        fgset, dp_color, dp_mask = prepare.prepare_gist()
-        # images.write_video(dp_mask, 30, self.res_path, src + '_fgmask')
-        # self.test_drawing_segmentation(fgset, dp_color, src)
 
-        # images.display_img(dp_mask)
-        # images.display_img(dp_color)
+        contour_tree = []
+        rect_tree = []
+        for fg in fg1357:
+            list_rect, list_contours = self.segmentation_blob(fg, prepare.param1357)
+            contour_tree.append(list_contours)
+            rect_tree.append(list_rect)
+
+        dp_count_tree, count_tree = prepare.create_count_groundtruth(fg1357, xml1357,'adf', 1357)
+
+
+        dplist = []
+        for frame_count, frame_rect, frame_contour, dpcolor, dpmask in zip(count_tree,rect_tree, contour_tree, dp1357, dpmask1357):
+            for s,c in zip(frame_rect,frame_count):
+                cv2.rectangle(dpcolor, (s[0], s[2]), (s[1], s[3]), tools.orange, 1)
+                cv2.rectangle(dpmask, (s[0], s[2]), (s[1], s[3]), tools.orange, 1)
+                cv2.putText(dpcolor, str(c), (s[0], s[2]), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, tools.blue, 2)
+                cv2.putText(dpmask, str(c), (s[0], s[2]), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, tools.blue, 2)
+
+
+            # cv2.drawContours(dpcolor,frame_contour,-1, tools.red,-1)
+            # cv2.drawContours(dpmask,frame_contour,-1, tools.red)
+
+
+            cv2.drawContours(dpcolor,frame_contour,-1, tools.green,2)
+            cv2.drawContours(dpmask,frame_contour,-1, tools.green,2)
+
+            dplist.append(np.hstack((dpcolor, dpmask)))
+            # cv2.imshow('1', np.hstack((dpcolor, dpmask)))
+            # cv2.waitKey(0)
+        return dplist
+
 
     def gt_test(self, prepare, fg1357, dp1357, dpmask1357):
         #####################################
@@ -271,24 +306,24 @@ class worker:
             #####################################################################
 
 
-            graph_name = 'case2' # l1v1 custom_gt , l1v2 auto_gt
-            groundtruth = self.read_count_groundtruth()
-            _trainX = np.concatenate(train_feature)
-            _trainY = np.concatenate(groundtruth)
-            testX = test_feature
-            testY = groundtruth1359
-            self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
+            # graph_name = 'case2' # l1v1 custom_gt , l1v2 auto_gt
+            # groundtruth = self.read_count_groundtruth()
+            # _trainX = np.concatenate(train_feature)
+            # _trainY = np.concatenate(groundtruth)
+            # testX = test_feature
+            # testY = groundtruth1359
+            # self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
 
 
             #####################################################################
 
 
-            graph_name = 'case3' # l1v1 odd auto gt, l1v1 event auto gt
-            _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
-            _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
-            testX = train_feature[1:train_feature.shape[0]:2]
-            testY = groundtruth1357[1:groundtruth1357.size:2]
-            self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
+            # graph_name = 'case3' # l1v1 odd auto gt, l1v1 event auto gt
+            # _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
+            # _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
+            # testX = train_feature[1:train_feature.shape[0]:2]
+            # testY = groundtruth1357[1:groundtruth1357.size:2]
+            # self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
 
 
             #####################################################################

@@ -98,21 +98,26 @@ def get_canny_edges(dp_color, weight, segmentation_set, version):
 
     from scipy import ndimage
     gray = cv2.cvtColor(dp_color, cv2.COLOR_BGR2GRAY)
-
+    gray_blur = ndimage.gaussian_filter(gray,1)
     # dir ver 1,2,3,4
     # edges = cv2.Canny(gray, 20, 200)
 
-    #dir ver 5
-    edges = cv2.Canny(gray, 140, 250)
 
-    dx = tools.sobel(gray, 0)
-    dy = tools.sobel(gray, 1)
+    edges = cv2.Canny(gray_blur, 20, 200)
+    # _edges =cv2.Canny(gray, 140,250)
+    # cv2.imshow('1',np.hstack((edges)))
+    # cv2.imshow('2',edges)
+    # cv2.waitKey(0)
+
+    dx = tools.sobel(gray_blur, 0)
+    dy = tools.sobel(gray_blur, 1)
     dxy = compute_orientation_matrix(dx, dy)
     dxy %= 180
 
     histogram_set = []
+    histogram_size= 4
     for s in segmentation_set:
-        histogram = [0.0 for x in range(6)]
+        histogram = [0.0 for x in range(histogram_size)]
 
         for y in range(s[2], s[3] + 1):
             for x in range(s[0], s[1] + 1):
@@ -120,7 +125,7 @@ def get_canny_edges(dp_color, weight, segmentation_set, version):
                 if edges[y, x]:
                     d = dxy[y, x]
 
-                    for i in range(6):
+                    for i in range(histogram_size):
                         if d < 30 * (i + 1):
                             histogram[i] += np.sqrt(weight[x])
                             break

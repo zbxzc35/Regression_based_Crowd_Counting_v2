@@ -47,12 +47,12 @@ class Prepare:
         np_gt = np.array(gt_list)
         width = min(np_gt[:, 2])
         heigh = min(np_gt[:, 3])
-        y = min(np_gt[:, 1])
+        cy = min(np_gt[:, 1])
 
         if flag==1357:
-            self.param1357 = (width, heigh, y)
+            self.param1357 = (width, heigh, cy-(heigh/2))
         else:
-            self.param1359 = (width, heigh, y)
+            self.param1359 = (width, heigh, cy-(heigh/2))
 
     def test_background_subtractor(self):
         path_time_13_57 = files.mkdir(self.DATASET, 'S1/L1/Time_13-57/View_001')
@@ -122,8 +122,8 @@ class Prepare:
             path_time_13_57 = files.mkdir(self.DATASET, 'S1/L1/Time_13-57/View_001')
             path_time_13_59 = files.mkdir(self.DATASET, 'S1/L1/Time_13-59/View_001')
             dilation_flag = 1
-            data1357 = self.create_parameters(path_time_13_57,dilation_flag)
-            data1359 = self.create_parameters(path_time_13_59,dilation_flag)
+            data1357 = self.create_parameters(path_time_13_57,self.param1357,dilation_flag)
+            data1359 = self.create_parameters(path_time_13_59,self.param1359,dilation_flag)
             # each data contains [fg set, gray-images, color-images, gray-images of fg set.]
 
             fg1357 = np.array(data1357[0])
@@ -176,7 +176,7 @@ class Prepare:
         return np.array(W)
 
 
-    def create_parameters(self, selected_path, flag_dilation=0):
+    def create_parameters(self, selected_path, param,flag_dilation=0 ):
         """
         Learns background model from data S0 and creates foreground mask of selected data S1.
         This returns four parameters which are
@@ -215,7 +215,7 @@ class Prepare:
             iteration =3
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
-        elif self.param_version == 3:
+        elif self.param_version in [3,10]:
             kernel_size= 3
             iteration =1
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
@@ -247,7 +247,7 @@ class Prepare:
 
         for frame in dp_gray:
             forward = background_model.apply(frame)  # create foreground mask which is gray-scale(0~255) image.
-            forward = cv2.dilate(forward,kernel,iterations=iteration)
+            forward = cv2.dilate(forward, kernel,iterations=iteration)
 
             # if flag_dilation:
             #     dp_mask.append(cv2.dilate(tmp,kernel,iterations=iteration))
@@ -260,9 +260,31 @@ class Prepare:
             dp_mask.append(tmp)
 
             a = stats.threshold(a, threshmin=0, threshmax=th, newval=1)
-            fgmask_set.append(a)
+
+            filtered = self.filtering(a,param)
+            fgmask_set.append(filtered)
 
         return (fgmask_set, dp_gray), (dp_color, dp_mask)
+
+    def filtering(self, fg, param):
+        ellipse = np.ones((54, 16), dtype=np.uint8)
+        y_min = tools.int2round(param[2])
+
+        fg[0: y_min, :] = 0 # remove background building
+        marking = np.zeros(fg.shape)
+        for i in range(0, fg.shape[1]-16):
+            for j in range(y_min , fg.shape[0]-54):
+                roi =  fg[j:j+54, i:i+16]
+                roi_and = roi*ellipse
+                fg_ratio = np.count_nonzero(roi_and)/float(ellipse.size)
+
+                if fg_ratio  > 0.6:
+                    marking[j:j+54, i:i+16] = roi.copy()
+
+        return marking
+
+
+
 
 
 

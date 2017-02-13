@@ -49,32 +49,5 @@ def get_file_list(rpath):
     return video_name,video_ext,gt_ext
 
 
-def parse_xml(path,fname):
-    tree = parse(path + "/"+fname)
-    root = tree.getroot()
-    obj_list = root.getiterator('objectlist')
-    count = 0
-    gt_list = []
-    for subList in obj_list:
-        if len(subList) is not 0:
-            sub_list = []
-            for obj in subList:
-                count += 1
-                ori = int(obj.findtext('orientation'))
-                box = obj[1]
-                xc = int(box.get('xc'))
-                yc = int(box.get('yc'))
-                w = int(box.get('w'))
-                h = int(box.get('h'))
-                x = xc - (w / 2)
-                y = yc - (h / 2)
-
-                sub_list.append((ori, x, y, w, h))
-
-            gt_list.append(sub_list)
-
-    return gt_list
-
-
 def isExist(bpath, fname):
     return path.exists(bpath + '/' + fname)

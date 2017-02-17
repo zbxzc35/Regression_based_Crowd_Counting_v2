@@ -17,6 +17,7 @@ from tiah import ImageHandler as images
 import time
 from tiah import tools as tools
 
+##TODO Adaptive thresholding.
 
 class worker:
     def __init__(self):
@@ -296,17 +297,38 @@ class worker:
         print 'frame: ', features1359[0].shape, ' Groundntruth: ', groundtruth1359.shape
         print 'feature X: ', np.concatenate(features1359[0]).shape, ' label Y: ', np.concatenate(groundtruth1359).shape
 
+
+
+
+
         MAE_frame = []
         MAE_feature = []
+
+        _trainY = np.concatenate(groundtruth1357)
+        # print 'np.unqiue groundtruth: ', np.unique(_trainY)
+        # bins = len(np.unique(_trainY))
+        # plt.hist(_trainY,bins)
+        # plt.ylabel('# of datas')
+        # plt.xlabel('label Y')
+        # plt.title('Training data distribution')
+        # plt.show()
+
+
+        raw_data_frame ={} #labels = ['E', 'K', 'T', 'P', 'S']
+
+        for key,value in zip(labels,MAE_frame):
+            raw_data_frame[key]=value
+
+
         for i in range(len(labels)):
             train_feature = features1357[i]
             test_feature = features1359[i]
+            testX = test_feature
+            testY = groundtruth1359
 
             graph_name = 'case1'  # l1v1 auto gt, l1v2 auto gt
             _trainX = np.concatenate(train_feature)
-            _trainY = np.concatenate(groundtruth1357)
-            testX = test_feature
-            testY = groundtruth1359
+
             pred, sum_pred, gt, gt_sum = self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name,
                                                                     labels[i])
 
@@ -358,6 +380,8 @@ class worker:
             # self.plot_knr(knr_results[0], knr_results[1], knr_results[2], knr_results[3], labels[i], graph_name, vpath)
             # self.make_video(dpcolors, fgset, gpr_results, 'gpr_' + labels[i], self.prepare.param1359)
             # self.make_video(dpcolors, fgset, knr_results, 'knr_' + labels[i], self.prepare.param1359)
+        print 'MAE per_frame: ', MAE_frame
+        print 'MAE per feature: ' , MAE_feature
 
     def train_model_test_plot(self, _trainX, _trainY, testX, testY, graph_name, label):
         print '_trainX: ', _trainX.shape, ' _trainY: ', _trainY.shape

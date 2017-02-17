@@ -22,8 +22,8 @@ from tiah import tools as tools
 class worker:
     def __init__(self):
 
-        P = range(2, 7)
-        D = range(2, 7)
+        P = range(2, 3)
+        D = range(2, 3)
         # d1~d6: using pn
         # d7: only E using p3
         # d8: only E using p5
@@ -334,46 +334,6 @@ class worker:
 
             MAE_frame.append(np.mean(np.abs(np.array(sum_pred)-np.array(gt_sum))))
             MAE_feature.append(np.mean(np.abs(np.array(pred)-np.array(gt))))
-
-
-            #####################################################################
-
-
-            # graph_name = 'case2' # l1v1 custom_gt , l1v2 auto_gt
-            # groundtruth = self.read_count_groundtruth()
-            # _trainX = np.concatenate(train_feature)
-            # _trainY = np.concatenate(groundtruth)
-            # testX = test_feature
-            # testY = groundtruth1359
-            # self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
-
-
-            #####################################################################
-
-
-            # graph_name = 'case3' # l1v1 odd auto gt, l1v1 event auto gt
-            # _trainX = np.concatenate(train_feature[0:train_feature.shape[0]:2])
-            # _trainY = np.concatenate(groundtruth1357[0:groundtruth1357.size:2])
-            # testX = train_feature[1:train_feature.shape[0]:2]
-            # testY = groundtruth1357[1:groundtruth1357.size:2]
-            # self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
-
-
-            #####################################################################
-            # l1v1 odd custom_gt
-            # l1v1 even custom_gt
-
-            # graph_name = 'case4'
-            # _trainX = np.concatenate(train_feature[0: train_feature.size:2])
-            # _trainY = np.concatenate(groundtruth[0: len(groundtruth):2])
-            # testX = train_feature[1:train_feature.size:2]
-            # testY = groundtruth[1:len(groundtruth):2]
-            # self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name, labels[i])
-
-            #####################################################################
-
-
-
 
 
 

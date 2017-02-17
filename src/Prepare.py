@@ -122,10 +122,12 @@ class Prepare:
             path_time_13_57 = files.mkdir(self.DATASET, 'S1/L1/Time_13-57/View_001')
             path_time_13_59 = files.mkdir(self.DATASET, 'S1/L1/Time_13-59/View_001')
             dilation_flag = 1
-            data1357 = self.create_parameters(path_time_13_57,self.param1357,dilation_flag)
-            data1359 = self.create_parameters(path_time_13_59,self.param1359,dilation_flag)
             # each data contains [fg set, gray-images, color-images, gray-images of fg set.]
 
+
+
+            data1357 = self.create_parameters(path_time_13_57,self.param1357)
+            data1359 = self.create_parameters(path_time_13_59,self.param1359)
             fg1357 = np.array(data1357[0])
             dp1357 = np.array(data1357[1])
             fg1359 = np.array(data1359[0])
@@ -133,6 +135,7 @@ class Prepare:
 
             images.write_video(dp1357[0], 20, self.param_path, 's1l1_1357_dpcolor')
             images.write_video(dp1357[1], 20, self.param_path, 's1l1_1357_dpmask')
+
             images.write_video(dp1359[0], 20, self.param_path, 's1l1_1359_dpcolor')
             images.write_video(dp1359[1], 20, self.param_path, 's1l1_1359_dpmask')
             np.save(self.param_path + '/' + self.FG1357, fg1357)
@@ -141,7 +144,8 @@ class Prepare:
             np.save(self.param_path + '/' + self.DP1359, dp1359)
 
 
-            a, gt1357= self.create_count_groundtruth(fg1357[0],self.xml1357,self.GT1357,1357)
+
+            a, gt1357 = self.create_count_groundtruth(fg1357[0], self.xml1357, self.GT1357, 1357)
             b, gt1359 =self.create_count_groundtruth(fg1359[0],self.xml1359, self.GT1359,1359)
 
 
@@ -176,7 +180,7 @@ class Prepare:
         return np.array(W)
 
 
-    def create_parameters(self, selected_path, param,flag_dilation=0 ):
+    def create_parameters(self, selected_path, param ):
         """
         Learns background model from data S0 and creates foreground mask of selected data S1.
         This returns four parameters which are
@@ -206,38 +210,48 @@ class Prepare:
         dp_mask = []
         th = 130
         if self.param_version == 1:
-            kernel_size= 1
+            flag_dilation = 0
+            kernel_size = 1
             iteration = 1
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
+
         elif self.param_version == 2:
-            kernel_size= 1
-            iteration =3
+            flag_dilation= 1
+            kernel_size = 3
+            iteration = 1
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
-        elif self.param_version in [3,10]:
-            kernel_size= 3
+
+        elif self.param_version ==3:
+            flag_dilation = 1
+            kernel_size= 10
             iteration =1
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
         elif self.param_version == 4:
-            kernel_size= 5
-            iteration =2
+            flag_dilation = 1
+            kernel_size= 3
+            iteration =3
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
         elif self.param_version == 5:
+            flag_dilation = 1
             kernel_size= 5
             iteration = 1
             kerenl_center = (2, 2)
             kernel = tools.matrix_binary_disk(kernel_size, kerenl_center, 2)
 
         elif self.param_version == 6:
-            kernel_size= 7
+            flag_dilation = 1
+
+            kernel_size= 10
             iteration = 1
-            kerenl_center = (3, 3)
+            kerenl_center = (4, 4)
             kernel = tools.matrix_binary_disk(kernel_size, kerenl_center, 2)
 
         else:
+            flag_dilation = 0
             kernel_size = 1
             iteration = 1
             kernel = np.ones((kernel_size, kernel_size), np.uint8)
@@ -247,22 +261,24 @@ class Prepare:
 
         for frame in dp_gray:
             forward = background_model.apply(frame)  # create foreground mask which is gray-scale(0~255) image.
-            forward = cv2.dilate(forward, kernel,iterations=iteration)
 
-            # if flag_dilation:
-            #     dp_mask.append(cv2.dilate(tmp,kernel,iterations=iteration))
-            # else:
-            #     dp_mask.append(tmp)
+            forward = self.filtering(forward, param)
+            a = stats.threshold(forward, threshmin=th, threshmax=255, newval=0)
+            foreground = stats.threshold(a, threshmin=0, threshmax=th, newval=1)
+
+            if flag_dilation==1:
+                foreground = cv2.dilate(foreground, kernel,iterations=iteration)
+
 
             # convert gray-scale foreground mask to binary image.
-            a = stats.threshold(forward, threshmin=th, threshmax=255, newval=0)
-            tmp = cv2.cvtColor(a, cv2.COLOR_GRAY2BGR)  # convert to color
+
+
+            tmp = cv2.cvtColor(foreground*255, cv2.COLOR_GRAY2BGR)  # convert to color
             dp_mask.append(tmp)
 
-            a = stats.threshold(a, threshmin=0, threshmax=th, newval=1)
 
-            filtered = self.filtering(a,param)
-            fgmask_set.append(filtered)
+
+            fgmask_set.append(foreground)
 
         return (fgmask_set, dp_gray), (dp_color, dp_mask)
 
@@ -271,7 +287,7 @@ class Prepare:
         y_min = tools.int2round(param[2])
 
         fg[0: y_min, :] = 0 # remove background building
-        marking = np.zeros(fg.shape)
+        marking = np.zeros(fg.shape, dtype=np.uint8)
         for i in range(0, fg.shape[1]-16):
             for j in range(y_min , fg.shape[0]-54):
                 roi =  fg[j:j+54, i:i+16]

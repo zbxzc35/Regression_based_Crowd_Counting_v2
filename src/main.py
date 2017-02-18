@@ -84,11 +84,7 @@ class worker:
         # images.write_video(dplist,8, tmp_path,'rc')
         # return 1
 
-        E = 1
-        K = 1
-        P = 1
-        S = 1
-        T = 1
+        E,K,P,S,T = 1,1,1,1,1
         feature_version = {'E': E, 'K': K, 'P': P, 'S': S, 'T': T}
 
         self.create_feature_set(fg1357, dpcolor1357, weight, feature_version, param1357, gt1357,
@@ -110,8 +106,6 @@ class worker:
         self.dowork(comb1357, comb1359, labels, dpcolor1359[1:length - 1], fg1359[1:length - 1],
                     groundtruth1357, groundtruth1359)
 
-    def load_feature_set(self, version):
-        np.load(self.param_path + '/feature_P_v' + str(version['P']))
 
     def make_combination(self, version, flag):
         # labels = ['E']
@@ -137,6 +131,15 @@ class worker:
 
 
     def draw_shapes(self, prepare, fg1357, dp1357, dpmask1357):
+        """
+        draw segmentation and contour ground truth for every segmentation for every frame.
+        :param prepare:
+        :param fg1357:
+        :param dp1357:
+        :param dpmask1357:
+        :return:
+        """
+
         #####################################
         # DO NOT DELETE
         xml1357 = 'PETS2009-S1L1-1'
@@ -160,68 +163,14 @@ class worker:
                 cv2.putText(dpcolor, str(c), (s[0], s[2]), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, tools.blue, 2)
                 cv2.putText(dpmask, str(c), (s[0], s[2]), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, tools.blue, 2)
 
-            # cv2.drawContours(dpcolor,frame_contour,-1, tools.red,-1)
-            # cv2.drawContours(dpmask,frame_contour,-1, tools.red)
-
 
             cv2.drawContours(dpcolor, frame_contour, -1, tools.green, 2)
             cv2.drawContours(dpmask, frame_contour, -1, tools.green, 2)
-
             dplist.append(np.hstack((dpcolor, dpmask)))
             # cv2.imshow('1', np.hstack((dpcolor, dpmask)))
             # cv2.waitKey(0)
         return dplist
 
-    def gt_test(self, prepare, fg1357, dp1357, dpmask1357):
-        #####################################
-        # DO NOT DELETE
-        xml1357 = 'PETS2009-S1L1-1'
-        GT1357 = 'xml_groundtruth1357.npy'
-
-        seg_tree = []
-        for fg in fg1357:
-            list_rect, list_contours = self.segmentation_blob(fg, prepare.param1357)
-            seg_tree.append(list_rect)
-
-        dp_count_tree, count_tree = prepare.create_count_groundtruth(fg1357, xml1357, 'adf', 1357)
-
-        for frame_count, frame_seg, dpcolor, dpmask in zip(dp_count_tree, seg_tree, dp1357, dpmask1357):
-            for i in range(len(frame_seg)):
-                s = frame_seg[i]
-                cv2.rectangle(dpcolor, (s[0], s[2]), (s[1], s[3]), tools.green, 1)
-                cv2.rectangle(dpmask, (s[0], s[2]), (s[1], s[3]), tools.green, 1)
-
-                abc = frame_count[i]
-                for gt in abc:
-                    cv2.rectangle(dpcolor, (gt[0], gt[2]), (gt[1], gt[3]), tools.red, 1)
-                    cv2.rectangle(dpmask, (gt[0], gt[2]), (gt[1], gt[3]), tools.red, 1)
-
-                cv2.imshow('1', np.hstack((dpcolor, dpmask)))
-                cv2.waitKey(0)
-
-    def test_drawing_segmentation(self, fgset, dp_color, fname):
-
-        a = []
-        for f in fgset:
-            frame_rect, frame_contour = self.segmentation_blob(f, [10, 10, 0])
-            a.append(frame_rect)
-
-        b = self.draw_segmentation(dp_color, a)
-
-        images.write_video(b, 30, self.res_path, fname + '_segmented')
-
-    def draw_segmentation(self, frame_set, seg_set):
-
-        results = []
-        for i in range(len(frame_set)):
-            frame = frame_set[i].copy()
-            frame_seg = seg_set[i]
-
-            for s in frame_seg:
-                cv2.rectangle(frame, (s[0], s[2]), (s[1], s[3]), tools.green, 1)
-            results.append(frame)
-
-        return results
 
     def test3d(self, X, Y, Z):
 
@@ -248,11 +197,6 @@ class worker:
 
     def dowork(self, features1357, features1359, labels, dpcolors, fgset, groundtruth1357, groundtruth1359):
 
-        # groundtruth = self.read_count_groundtruth()
-        # groundtruth = groundtruth[1:len(groundtruth) - 1]
-        # print 'custom gt len: ', len(groundtruth)
-        # print 'custom gt concat ', np.concatenate(groundtruth).shape
-
         print '1357 case'
         print 'frame: ', features1357[0].shape, ' Groundntruth: ', groundtruth1357.shape
         print 'feature X: ', np.concatenate(features1357[0]).shape, ' label Y: ', np.concatenate(groundtruth1357).shape
@@ -260,9 +204,6 @@ class worker:
         print '1359 case'
         print 'frame: ', features1359[0].shape, ' Groundntruth: ', groundtruth1359.shape
         print 'feature X: ', np.concatenate(features1359[0]).shape, ' label Y: ', np.concatenate(groundtruth1359).shape
-
-
-
 
 
         MAE_frame = []
@@ -298,8 +239,6 @@ class worker:
 
             MAE_frame.append(np.mean(np.abs(np.array(sum_pred)-np.array(gt_sum))))
             MAE_feature.append(np.mean(np.abs(np.array(pred)-np.array(gt))))
-
-
 
             # self.plot_knr(knr_results[0], knr_results[1], knr_results[2], knr_results[3], labels[i], graph_name, vpath)
             # self.make_video(dpcolors, fgset, gpr_results, 'gpr_' + labels[i], self.prepare.param1359)
@@ -363,30 +302,6 @@ class worker:
         # self.plot_gpr(gprmodel,testX,testY,label,fname)
         # self.plot_knr(knrmodel,testX,testY,label,fname)
 
-    def make_video(self, colordp, fgset, result, fname, param):
-
-        # pred, sum_pred, gt, gt_sum
-        Y_pred_frame = result[0]
-        print 'Y_pred_frame: ', len(Y_pred_frame), 'fgset: ', len(fgset)
-        videopath = files.mkdir(self.res_path, 'prediction_videos')
-        imgset = []
-        for i in range(len(fgset)):
-            rect, cont = self.segmentation_blob(fgset[i], param)
-            tmp = colordp[i].copy()
-
-            pred = Y_pred_frame[i]
-            # print 'rect size: ' , len(rect), 'frame_pred: ' , len(pred)
-            # gt =  groundtruth[i]
-            for j in range(len(rect)):
-                r = rect[j]
-                cv2.rectangle(tmp, (r[0], r[2]), (r[1], r[3]), tools.green, 2)
-                msg_pred = '#:' + str(tools.int2round(pred[j]))
-                cv2.putText(tmp, msg_pred, (r[0], r[2]), cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, tools.blue, 2)
-                # msg_gt = 'GT: '+str(gt[j])
-                # cv2.putText(tmp, msg_gt, (r[0]+10,r[2]),cv2.FONT_HERSHEY_COMPLEX_SMALL, 1.0, tools.red)
-            imgset.append(tmp)
-        # images.display_img(imgset, 300)
-        images.write_video(imgset, 20, videopath, fname)
 
     def prediction_gpr_model(self, model, testX, testY):
         pred = np.array([])
@@ -423,16 +338,6 @@ class worker:
 
         return pred, sum_pred, gt, gt_sum
 
-    def get_feature_by_label(self, _X, _Y, c):
-        X = []
-        Y = []
-
-        for i in range(len(_X)):
-            if _Y[i] != c:
-                X.append(_X[i])
-                Y.append(_Y[i])
-
-        return np.array(X), np.array(Y)
 
     def plot_knr(self, Y_pred, Y_sum_pred, Y_label, Y_sum_label, label, fname, vpath):
         """

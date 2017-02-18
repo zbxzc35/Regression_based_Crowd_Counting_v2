@@ -126,20 +126,6 @@ class worker:
         S = np.load(feature_path + '/feature_S_v' + str(version['S']) + '.npy')  # np.array(features[4])
         # S2 = np.load(self.param_path + '/feature_P_v' + str(version['P'])) #np.array(features[5])
 
-        KE = self.make_dual_form(K, E)
-        KT = self.make_dual_form(K, T)
-        KP = self.make_dual_form(K, P)
-        KS = self.make_dual_form(K, S)
-
-        ET = self.make_dual_form(E, T)
-        EP = self.make_dual_form(E, P)
-        ES = self.make_dual_form(E, S)
-
-        KPS = self.make_triple_form(K, P, S)
-        KES = self.make_triple_form(K, E, S)
-
-        # combinations = [E, K, T, P, S, KE, KS, KES]
-        # combinations = [E, K, T, P, S, KE, KT, KP, KS, ET, EP, ES, KPS]
         combinations = [E, K, T, P, S]
         if flag == '1357':
             groundtruth = np.load(feature_path + '/' + self.COUNTGT1357)
@@ -148,29 +134,7 @@ class worker:
 
         return combinations, labels, groundtruth
 
-    def make_dual_form(self, A, B):
-        newone = []
-        for frame1, frame2 in zip(A, B):
-            frame = []
 
-            for a, b in zip(frame1, frame2):
-                frame.append(np.hstack((a, b)))
-
-            newone.append(frame)
-
-        return np.array(newone)
-
-    def make_triple_form(self, A, B, C):
-        newone = []
-        for frame1, frame2, frame3 in zip(A, B, C):
-            frame = []
-
-            for a, b, c in zip(frame1, frame2, frame3):
-                frame.append(np.hstack((a, b, c)))
-
-            newone.append(frame)
-
-        return np.array(newone)
 
     def draw_shapes(self, prepare, fg1357, dp1357, dpmask1357):
         #####################################

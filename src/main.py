@@ -50,8 +50,7 @@ class worker:
         self.prepare = Prepare(self.bpath, self.res_path, self.param_version)
         self.prepare.init_pets()
         # prepare.test_background_subtractor()
-        self.FEATURE1357 = 'featureset1357.npy'
-        self.FEATURE1359 = 'featureset1359.npy'
+
         self.COUNTGT1357 = 'c_groundtruth1357.npy'
         self.COUNTGT1359 = 'c_groundtruth1359.npy'
 
@@ -68,9 +67,6 @@ class worker:
         fg1359 = a1359[0]
         dpcolor1359 = b1359[0]
         dpmask1359 = b1359[1]
-        # v2: only K
-        # v3: only K E T
-        # v3: K E T P S S2
 
         # import segm as segm
         # segm.testing(fg1357,dpcolor1357,dpmask1357,param1357,self.res_path)
@@ -91,28 +87,23 @@ class worker:
                                 self.COUNTGT1357, '1357')
         self.create_feature_set(fg1359, dpcolor1359, weight, feature_version, param1359, gt1359,
                                 self.COUNTGT1359, '1359')
-        # features1357 = np.load(self.param_path + '/v' + str(self.feature_version) + '_' + self.FEATURE1357)
-        # features1359 = np.load(self.param_path + '/v' + str(self.feature_version) + '_' + self.FEATURE1359)
-
 
         print 'data1357: ', fg1357.shape, dpcolor1357.shape, len(dpmask1357)
         print 'data1359: ', fg1359.shape, dpcolor1359.shape, len(dpmask1359)
         # K,E,T,P,S,S2
         length = len(dpcolor1359)
 
-        comb1357, labels, groundtruth1357 = self.make_combination(feature_version, '1357')
-        comb1359, labels, groundtruth1359 = self.make_combination(feature_version, '1359')
+        comb1357, labels, groundtruth1357 = self.load_features_by_version(feature_version, '1357')
+        comb1359, labels, groundtruth1359 = self.load_features_by_version(feature_version, '1359')
 
         self.dowork(comb1357, comb1359, labels, dpcolor1359[1:length - 1], fg1359[1:length - 1],
                     groundtruth1357, groundtruth1359)
 
 
-    def make_combination(self, version, flag):
-        # labels = ['E']
-        # labels = ['E', 'K',  'T', 'P', 'S', 'KE', 'KT', 'KP', 'KS', 'ET', 'EP', 'ES', 'KPS']
-        labels = ['E', 'K', 'T', 'P', 'S']
+    def load_features_by_version(self, version, flag):
         feature_path = files.mkdir(self.param_path, flag)
         print 'loading features from ', feature_path
+        labels = ['E', 'K', 'T', 'P', 'S']
         E = np.load(feature_path + '/feature_E_v' + str(version['E']) + '.npy')  # np.array(features[0])
         K = np.load(feature_path + '/feature_K_v' + str(version['K']) + '.npy')  # np.array(features[1])
         T = np.load(feature_path + '/feature_T_v' + str(version['T']) + '.npy')  # np.array(features[2])
@@ -195,7 +186,7 @@ class worker:
         X = pca.fit_transform(_trainX)
         self.test3d(X[:, 0], X[:, 1], _trainY)
 
-    def dowork(self, features1357, features1359, labels, dpcolors, fgset, groundtruth1357, groundtruth1359):
+    def dowork(self, features1357, features1359, flabels, dpcolors, fgset, groundtruth1357, groundtruth1359):
 
         print '1357 case'
         print 'frame: ', features1357[0].shape, ' Groundntruth: ', groundtruth1357.shape
@@ -209,36 +200,28 @@ class worker:
         MAE_frame = []
         MAE_feature = []
 
-        _trainY = np.concatenate(groundtruth1357)
-        # print 'np.unqiue groundtruth: ', np.unique(_trainY)
-        # bins = len(np.unique(_trainY))
-        # plt.hist(_trainY,bins)
-        # plt.ylabel('# of datas')
-        # plt.xlabel('label Y')
-        # plt.title('Training data distribution')
-        # plt.show()
+        trainY = np.concatenate(groundtruth1357)
+        # self.plot_label_distribution(trainY)
+        pred_results = {}
 
-
-        raw_data_frame ={} #labels = ['E', 'K', 'T', 'P', 'S']
-
-        for key,value in zip(labels,MAE_frame):
-            raw_data_frame[key]=value
-
-
-        for i in range(len(labels)):
+        models= []
+        print 'Load GPR models'
+        for i in range(len(flabels)):
             train_feature = features1357[i]
-            test_feature = features1359[i]
-            testX = test_feature
-            testY = groundtruth1359
+            trainX = np.concatenate(train_feature)
+            gpr_model = self.training_model_by_dataset(trainX, trainY,flabels[i])
+            models.append(gpr_model)
 
-            graph_name = 'case1'  # l1v1 auto gt, l1v2 auto gt
-            _trainX = np.concatenate(train_feature)
+        print 'Prediction on each models'
+        for i in range(len(flabels)):
+            testX = features1359[i]
+            pred, featureY, frameY = self.prediction_gpr_model2(models[i],testX,groundtruth1359)
+            pred_results[flabels[i]] = (pred, featureY, frameY )
 
-            pred, sum_pred, gt, gt_sum = self.train_model_test_plot(_trainX, _trainY, testX, testY, graph_name,
-                                                                    labels[i])
 
-            MAE_frame.append(np.mean(np.abs(np.array(sum_pred)-np.array(gt_sum))))
-            MAE_feature.append(np.mean(np.abs(np.array(pred)-np.array(gt))))
+
+            # MAE_frame.append(np.mean(np.abs(np.array(sum_pred)-np.array(gt_sum))))
+            # MAE_feature.append(np.mean(np.abs(np.array(pred)-np.array(gt))))
 
             # self.plot_knr(knr_results[0], knr_results[1], knr_results[2], knr_results[3], labels[i], graph_name, vpath)
             # self.make_video(dpcolors, fgset, gpr_results, 'gpr_' + labels[i], self.prepare.param1359)
@@ -246,61 +229,54 @@ class worker:
         print 'MAE per_frame: ', MAE_frame
         print 'MAE per feature: ' , MAE_feature
 
-    def train_model_test_plot(self, _trainX, _trainY, testX, testY, graph_name, label):
-        print '_trainX: ', _trainX.shape, ' _trainY: ', _trainY.shape
-        print 'testX: ', testX.shape, ' testY: ', np.array(testY).shape
 
-        gpr_results = self.train_model_and_test(_trainX, _trainY, testX, testY, label, 'model',
-                                                '1357-1359',
-                                                self.model_path)  # each result set contains [pred, sum_pred, gt, gt_sum]
 
-        self.plot_gpr(gpr_results[0], gpr_results[1], gpr_results[2], gpr_results[3], label, graph_name,
-                      self.graph_path)
-        return gpr_results
+        # self.plot_gpr(gprmodel,testX,testY,label,fname)
+        # self.plot_knr(knrmodel,testX,testY,label,fname)
 
-    def train_model_and_test(self, _trainX, _trainY, testX, testY, label, mname, fname, model_path):
-        """
-        Learns GPR and KNR model from given training set and test on test set.
+    def plot_label_distribution(self,trainY):
+        print 'np.unqiue groundtruth: ', np.unique(trainY)
+        bins = len(np.unique(trainY))
+        plt.hist(trainY,bins)
+        plt.ylabel('# of datas')
+        plt.xlabel('label Y')
+        plt.title('Training data distribution')
+        plt.show()
 
-        Here, training set consists of every odd feature and test set consists of every training set is equal to test set.
-
-        :param _trainX:
-        :param _trainY:
-        :param testX:
-        :param testY:
-        :param label:
-        :param mname:
-        :param fname:
-        :param model_path:
-        :return:
-        """
-
+    def training_model_by_dataset(self, _trainX, _trainY, flabel):
         trainX, trainY = self.exclude_label(_trainX, _trainY, c=0)
 
         print '_trainX.shape: ', trainX.shape, ', _trainY.shape: ', trainY.shape
 
-        PYGPR = 'gpr_' + label + '_' + mname
+        PYGPR = 'gpr_model' + flabel
 
-        if files.isExist(model_path, PYGPR):
-            gprmodel = self.loadf(model_path, PYGPR)
+        if files.isExist(self.model_path, PYGPR):
+            gprmodel = self.loadf(self.model_path, PYGPR)
 
         else:
             print 'Learning GPR model'
             gprmodel = pyGPs.GPR()
             gprmodel.getPosterior(trainX, trainY)
             gprmodel.optimize(trainX, trainY)
-            self.savef(model_path, PYGPR, gprmodel)
+            self.savef(self.model_path, PYGPR, gprmodel)
 
-        # gpred, gsum_pred, ggt, ggt_sum = self.prediction_gpr_model(gprmodel,testX,[])
-        # kpred, ksum_pred, kgt, kgt_sum = self.prediction_gpr_model(knrmodel,testX,[])
+        return gprmodel
 
-        gpr_result = self.prediction_gpr_model(gprmodel, testX, testY)
+    def prediction_gpr_model2(self, model, testX, testY):
 
-        return gpr_result
+        pred = []
 
+        featureY = np.array([])
+        frameY = []
+        for y in testY:
+            featureY = np.hstack((featureY, y))
+            frameY.append(sum(y))
 
-        # self.plot_gpr(gprmodel,testX,testY,label,fname)
-        # self.plot_knr(knrmodel,testX,testY,label,fname)
+        for x in testX:
+            ym, ys2, fm, fs2, lp = model.predict(np.array(x))
+            pred.append(ym)
+
+        return pred, featureY, frameY
 
 
     def prediction_gpr_model(self, model, testX, testY):
@@ -503,19 +479,6 @@ class worker:
                 P.append(p)
             np.save(feature_path + '/feature_P_v' + str(version['P']), P)
 
-    def read_count_groundtruth(self):
-        """
-        reads text file which contains groundtruth.
-        :return:
-        """
-
-        lines = files.read_text(self.bpath, 'count_gt')
-        res = []
-        for line in lines:
-            tmp = line.split(',')
-            tmp = tools.int2round(tmp)
-            res.append(tmp)
-        return res
 
     def exclude_label(self, _X, _Y, c):
         X = []
